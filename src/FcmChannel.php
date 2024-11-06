@@ -70,11 +70,9 @@ class FcmChannel
         $responses = [];
 
         try {
-            if (is_array($token)) {
-                // Use multicast when there are multiple recipients
-                $partialTokens = array_chunk($token, self::MAX_TOKEN_PER_REQUEST, false);
-                foreach ($partialTokens as $tokens) {
-                    $responses[] = $this->sendToFcmMulticast($fcmMessage, $tokens);
+            if (is_array($token) && count($token) > 0) {
+                foreach ($token as $singleToken) {
+                    $responses[] = $this->sendToFcm($fcmMessage, $singleToken);
                 }
             } else {
                 $responses[] = $this->sendToFcm($fcmMessage, $token);
