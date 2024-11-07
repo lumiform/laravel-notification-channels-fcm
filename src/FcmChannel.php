@@ -68,18 +68,18 @@ class FcmChannel
         }
 
         $responses = [];
+        $errors = [];
+        if (!is_array($token)) {
+            $token = [$token];
+        }
 
-        try {
-            if (is_array($token) && count($token) > 0) {
-                foreach ($token as $singleToken) {
-                    $responses[] = $this->sendToFcm($fcmMessage, $singleToken);
-                }
-            } else {
-                $responses[] = $this->sendToFcm($fcmMessage, $token);
+        foreach ($token as $singleToken) {
+            try {
+                $responses[] = $this->sendToFcm($fcmMessage, $singleToken);
+            } catch (MessagingException $exception) {
+                $this->failedNotification($notifiable, $notification, $exception, $token);
+                $errors[] = CouldNotSendNotification::serviceRespondedWithAnError($exception);
             }
-        } catch (MessagingException $exception) {
-            $this->failedNotification($notifiable, $notification, $exception, $token);
-            throw CouldNotSendNotification::serviceRespondedWithAnError($exception);
         }
 
         return $responses;
