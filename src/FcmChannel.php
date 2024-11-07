@@ -10,6 +10,7 @@ use Kreait\Firebase\Exception\MessagingException;
 use Kreait\Firebase\Messaging\CloudMessage;
 use Kreait\Firebase\Messaging\Message;
 use NotificationChannels\Fcm\Exceptions\CouldNotSendNotification;
+use Psr\Log\LoggerInterface;
 use ReflectionException;
 use Throwable;
 
@@ -22,14 +23,17 @@ class FcmChannel
      */
     protected $events;
 
+    protected LoggerInterface $logger;
+
     /**
      * FcmChannel constructor.
      *
      * @param  \Illuminate\Contracts\Events\Dispatcher  $dispatcher
      */
-    public function __construct(Dispatcher $dispatcher)
+    public function __construct(Dispatcher $dispatcher, LoggerInterface $logger)
     {
         $this->events = $dispatcher;
+        $this->logger = $logger;
     }
 
     /**
@@ -80,6 +84,10 @@ class FcmChannel
                 $this->failedNotification($notifiable, $notification, $exception, $token);
                 $errors[] = CouldNotSendNotification::serviceRespondedWithAnError($exception);
             }
+        }
+
+        foreach ($errors as $error) {
+            $this->logger->error('FCM error: ' . $error->getMessage(), ['error' => $error]);
         }
 
         return $responses;
