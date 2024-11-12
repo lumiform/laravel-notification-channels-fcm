@@ -87,7 +87,18 @@ class FcmChannel
         }
 
         foreach ($errors as $error) {
-            $this->logger->error('FCM error: ' . $error->getMessage(), ['error' => $error]);
+            $previousErrors = $error->getPrevious()?->errors();
+            $details = [];
+            $isTokenError = false;
+
+            if (count($previousErrors) && isset($previousErrors['error'])) {
+                $previousError = $previousErrors['error'];
+                $details = $previousError['details'];
+                $isTokenError = isset($details[1]['fieldViolations'][0]['field'])
+                    && $details[1]['fieldViolations'][0]['field'] === 'message.token';
+            }
+
+            $this->logger->info('FCM error: ' . $error->getMessage(), ['details' => $details, 'isTokenError' => $isTokenError ]);
         }
 
         return $responses;
