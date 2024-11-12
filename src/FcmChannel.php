@@ -6,9 +6,11 @@ use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Notifications\Events\NotificationFailed;
 use Illuminate\Notifications\Notification;
+use Kreait\Firebase\Exception\Messaging\NotFound;
 use Kreait\Firebase\Exception\MessagingException;
 use Kreait\Firebase\Messaging\CloudMessage;
 use Kreait\Firebase\Messaging\Message;
+use NotificationChannels\Fcm\Events\InvalidTokenFound;
 use NotificationChannels\Fcm\Exceptions\CouldNotSendNotification;
 use Psr\Log\LoggerInterface;
 use ReflectionException;
@@ -86,20 +88,32 @@ class FcmChannel
                 $responses[] = $this->sendToFcm($fcmMessage, $singleToken);
             } catch (MessagingException $exception) {
                 $this->failedNotification($notifiable, $notification, $exception, $token);
-                $errors[] = CouldNotSendNotification::serviceRespondedWithAnError($exception);
+                $errors[] = [
+                    'error' => CouldNotSendNotification::serviceRespondedWithAnError($exception),
+                    'token' => $singleToken
+                ];
             }
         }
 
-        foreach ($errors as $error) {
+        foreach ($errors as $errorRow) {
+            $error = $errorRow['error'];
             $previousErrors = $error->getPrevious()?->errors();
             $details = [];
             $isTokenError = false;
 
-            if (count($previousErrors) && isset($previousErrors['error'])) {
+            if ($previousErrors && count($previousErrors) && isset($previousErrors['error'])) {
                 $previousError = $previousErrors['error'];
                 $details = $previousError['details'];
                 $isTokenError = isset($details[1]['fieldViolations'][0]['field'])
                     && $details[1]['fieldViolations'][0]['field'] === 'message.token';
+            }
+
+            if ($error->getPrevious() instanceof NotFound) {
+                $isTokenError = true;
+            }
+
+            if ($isTokenError) {
+                InvalidTokenFound::dispatch($errorRow['token']);
             }
 
             $this->logger->info('FCM error: ' . $error->getMessage(), ['details' => $details, 'isTokenError' => $isTokenError ]);
