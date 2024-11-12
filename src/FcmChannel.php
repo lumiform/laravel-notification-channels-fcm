@@ -23,6 +23,8 @@ class FcmChannel
      */
     protected $events;
 
+    protected $errors = [];
+
     protected LoggerInterface $logger;
 
     /**
@@ -51,6 +53,7 @@ class FcmChannel
      * @throws \NotificationChannels\Fcm\Exceptions\CouldNotSendNotification
      * @throws \Kreait\Firebase\Exception\FirebaseException
      */
+
     public function send($notifiable, Notification $notification)
     {
         $token = $notifiable->routeNotificationFor('fcm', $notification);
@@ -66,6 +69,7 @@ class FcmChannel
             throw CouldNotSendNotification::invalidMessage();
         }
 
+        $this->errors = [];
         $this->fcmProject = null;
         if (method_exists($notification, 'fcmProject')) {
             $this->fcmProject = $notification->fcmProject($notifiable, $fcmMessage);
@@ -99,9 +103,20 @@ class FcmChannel
             }
 
             $this->logger->info('FCM error: ' . $error->getMessage(), ['details' => $details, 'isTokenError' => $isTokenError ]);
+
+            $this->errors[] = [
+                'error' => $error,
+                'details' => $details,
+                'isTokenError' => $isTokenError
+            ];
         }
 
         return $responses;
+    }
+
+    public function getErrors()
+    {
+        return $this->errors;
     }
 
     /**
